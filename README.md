@@ -1,167 +1,221 @@
-# 🔐 SECURITY ASSESSMENT REPORT  
-## Evaluasi Keamanan Sistem Digital SMADA
+# SMADA Security Hardening & Prevention Guide
+
+## Ringkasan
+Dokumen ini disusun sebagai panduan **pencegahan dan penguatan keamanan sistem digital SMADA** berdasarkan hasil evaluasi teknis dan observasi terbatas terhadap aplikasi dan website yang digunakan dalam ekosistem sekolah.
+
+Tujuan utama dokumen ini adalah:
+- Mencegah insiden keamanan di masa depan
+- Melindungi data siswa, guru, dan institusi
+- Meningkatkan profesionalitas dan keandalan sistem
+- Menurunkan risiko reputasi dan hukum
+
+Dokumen ini **bukan laporan kesalahan personal**, melainkan panduan teknis untuk perbaikan sistem.
 
 ---
 
-## 📘 Dokumen Informasi
-
-| Keterangan | Detail |
-|-----------|--------|
-| Judul | Laporan Evaluasi Keamanan Sistem Digital SMADA |
-| Jenis Dokumen | Security Observation & Assessment |
-| Lingkup | Aplikasi & Website Sekolah |
-| Penyusun | Siswa SMADA |
-| Tanggal | 30 Desember 2025 |
-| Status | Internal – Evaluasi & Rekomendasi |
+## Ruang Lingkup
+Panduan ini mencakup:
+- Aplikasi E-Learning (Mobile & Web)
+- Website `smadapas.biz`
+- Website `smadapas.sch.id`
+- Infrastruktur server & jaringan
+- Manajemen akun dan akses
+- Proteksi terhadap serangan umum (OWASP Top 10, DDoS, Bot, Malware)
 
 ---
 
-## 📝 Ringkasan Eksekutif (Executive Summary)
+## 1. Pengamanan Aplikasi E-Learning
 
-Dokumen ini merupakan laporan hasil **observasi dan evaluasi keamanan terbatas** terhadap beberapa sistem digital yang digunakan di lingkungan SMADA, meliputi aplikasi pembelajaran dan website sekolah.
+### 1.1 Build & Distribusi Aplikasi
+**Masalah umum:**
+- Aplikasi mudah diekstraksi
+- Mode debug masih aktif
+- Kode dan konfigurasi terekspos
 
-Tujuan utama laporan ini adalah untuk:
-- Mengidentifikasi **potensi kerentanan keamanan**
-- Memberikan **gambaran risiko teknis**
-- Menyampaikan **rekomendasi perbaikan** demi meningkatkan keamanan, stabilitas, dan profesionalisme sistem
-
-Laporan ini disusun secara **objektif, teknis, dan bertanggung jawab**, serta **tidak bertujuan untuk menyalahkan pihak mana pun**, melainkan sebagai bahan evaluasi internal.
-
----
-
-## 🎯 Tujuan & Ruang Lingkup
-
-### Tujuan
-- Menilai kondisi keamanan sistem digital sekolah
-- Mengidentifikasi risiko terhadap data dan layanan
-- Mendukung peningkatan tata kelola keamanan TI
-
-### Ruang Lingkup Sistem
-1. **Aplikasi SMADA E-Learning**
-2. **Website smadapas.biz**
-3. **Website smadapas.sch.id**
+**Pencegahan efektif:**
+- Gunakan **release build** (non-debug)
+- Aktifkan:
+  - Code obfuscation (ProGuard / R8)
+  - Anti-tampering & integrity check
+- Nonaktifkan:
+  - Debug flag
+  - Logging sensitif di production
+- Validasi signature aplikasi saat runtime
 
 ---
 
-## 1️⃣ Aplikasi SMADA E-Learning
+### 1.2 Autentikasi & Sesi
+**Masalah umum:**
+- Autentikasi dapat dimodifikasi
+- Manajemen sesi tidak stabil
 
-### 🔍 Temuan Teknis
-- Struktur aplikasi relatif **mudah diekstraksi**
-- Mekanisme **autentikasi masih dapat dimodifikasi**
-- Website masih dapat diakses melalui **wrapping aplikasi**
-- Lock app dan anti-split telah diterapkan, namun:
-  - **Sistem perizinan aplikasi belum optimal**
-- Aplikasi terdeteksi masih dalam **debug mode**
-- Stabilitas sesi pengguna berpotensi terganggu
-- **Lapisan keamanan aplikasi masih terbatas**
-
-### ⚠️ Risiko
-- Manipulasi autentikasi
-- Penyalahgunaan sesi login
-- Potensi akses tidak sah terhadap sistem
+**Pencegahan efektif:**
+- Terapkan **token-based authentication (JWT / session token)**
+- Session timeout otomatis
+- Validasi token di server (bukan client)
+- Implementasi **single-session per user**
+- Deteksi anomali login (IP / device change)
 
 ---
 
-## 2️⃣ Website smadapas.biz
+### 1.3 Isolasi Aplikasi
+**Masalah umum:**
+- Aplikasi dapat diakses via web wrapping
 
-### 🔍 Temuan Teknis
-- Masih dapat diakses menggunakan **payload tertentu**
-- Potensi **SQL Injection**
-- Kredensial administrator **rentan brute force**
-- **WAF dan proteksi Cloudflare belum optimal**
-- Struktur admin terpisah berdasarkan kelas:
-  - `/x-adminnya/`
-  - `/xi-adminnya/`
-  - `/xii-adminnya/`
-- Struktur ini meningkatkan:
-  - Kompleksitas sistem
-  - Risiko keamanan
-- Spesifikasi **VPS/hosting kurang memadai**
-- Fitur upload file:
-  - Berpotensi SQL Injection
-  - Memungkinkan penyisipan file berbahaya
-- Hak akses pengguna dapat dimodifikasi
-
-### ⚠️ Risiko
-- Pengambilalihan akun
-- Eskalasi hak akses
-- Kebocoran dan manipulasi data
+**Pencegahan efektif:**
+- Backend **menolak request non-application**
+- Validasi:
+  - User-Agent
+  - App signature
+  - Custom application headers
+- Rate-limit request API
 
 ---
 
-## 3️⃣ Website smadapas.sch.id
+## 2. Pengamanan Website smadapas.biz
 
-### 🔍 Temuan Teknis
-- Ditemukan **penyisipan tautan eksternal berbahaya (judol)**
-- Terdapat celah penyimpanan atau penyematan link
-- **cPanel dengan tingkat keamanan rendah**
-- Tidak terdapat lapisan proteksi tambahan:
+### 2.1 Struktur & Arsitektur
+**Masalah umum:**
+- Banyak endpoint admin terpisah
+- Kompleksitas tinggi, attack surface besar
+
+**Pencegahan efektif:**
+- Satukan panel admin dalam **satu endpoint**
+- Gunakan role-based access control (RBAC)
+- Batasi akses admin berdasarkan IP / VPN
+
+---
+
+### 2.2 Autentikasi & Kredensial
+**Masalah umum:**
+- Username/password mudah ditebak
+- Rentan brute force
+
+**Pencegahan efektif:**
+- Password policy kuat:
+  - Minimum 12 karakter
+  - Kombinasi huruf, angka, simbol
+- Hash password dengan **bcrypt / argon2**
+- Aktifkan:
+  - Login rate limiting
+  - Account lockout sementara
+- Wajibkan pergantian password berkala
+
+---
+
+### 2.3 SQL Injection & Input Validation
+**Masalah umum:**
+- Input tidak difilter
+- Upload file tidak aman
+
+**Pencegahan efektif:**
+- Gunakan **prepared statements**
+- Validasi input server-side
+- Nonaktifkan dynamic SQL
+- Escape & sanitize semua input
+
+---
+
+### 2.4 Upload File Security
+**Masalah umum:**
+- Upload file berbahaya (HTML/PHP trigger)
+
+**Pencegahan efektif:**
+- Whitelist MIME type & extension
+- Rename file secara acak (UUID)
+- Simpan file di luar web root
+- Scan file dengan antivirus server-side
+- Nonaktifkan eksekusi file upload
+
+---
+
+## 3. Pengamanan Website smadapas.sch.id
+
+### 3.1 Pencegahan Malware & Judol Injection
+**Masalah umum:**
+- Penyisipan link eksternal / judol
+
+**Pencegahan efektif:**
+- Audit seluruh file website
+- Reinstall core CMS (jika ada)
+- Ganti seluruh kredensial:
+  - cPanel
+  - FTP
+  - Database
+- Nonaktifkan editor file publik
+- Batasi permission file (`644/755`)
+
+---
+
+### 3.2 cPanel & Server
+**Masalah umum:**
+- Pengamanan default (lemah)
+
+**Pencegahan efektif:**
+- Aktifkan:
+  - ModSecurity
+  - ImunifyAV / Imunify360
+- Update OS & service rutin
+- Nonaktifkan login root langsung
+- Gunakan SSH key authentication
+
+---
+
+## 4. Proteksi Infrastruktur & Jaringan
+
+### 4.1 DDoS & Traffic Protection
+**Kondisi saat ini:**
+- Risiko DDoS rendah, proteksi minim
+
+**Pencegahan efektif (WAJIB):**
+- Aktifkan **Cloudflare**
+- Gunakan:
   - WAF
-  - Cloudflare
-  - Rate limiting
-  - Bot protection
+  - Rate Limiting
+  - Bot Management
   - CDN
-  - Load balancer
+- Gunakan HTTPS di seluruh domain
+- Aktifkan HTTP security headers
 
 ---
 
-## 🛡️ DDoS & Error Analysis Summary
-
-**Tanggal Analisis:** 30/12/2025  
-**Waktu:** 17.17 WIB  
-
-### 📊 Hasil Pengujian
-- Status Website: **ONLINE**
-- HTTP Error: **TIDAK TERDETEKSI**
-- Server Response: **NORMAL**
-- DDoS Risk Level: **LOW**
-
-### ⚠️ Catatan Penting
-Walaupun kondisi saat ini tergolong stabil, **tidak adanya lapisan proteksi aktif** menjadikan sistem **rentan jika terjadi serangan di masa mendatang**.
+### 4.2 Monitoring & Logging
+- Centralized log
+- Audit login & perubahan data
+- Alert otomatis untuk aktivitas abnormal
+- Backup harian (offsite)
 
 ---
 
-## 📈 Ringkasan Risiko Sistem
+## 5. Manajemen Akses & Organisasi
 
-| Sistem | Status | Tingkat Risiko |
-|------|------|---------------|
-| SMADA E-Learning | Aktif | Menengah |
-| smadapas.biz | Aktif | Tinggi |
-| smadapas.sch.id | Aktif | Menengah |
+### 5.1 Akses Administrator
+- Prinsip **least privilege**
+- Tidak berbagi akun admin
+- Log semua aktivitas admin
+- 2FA untuk akun penting
 
 ---
 
-## ✅ Rekomendasi Umum
-
-- Menonaktifkan **debug mode** pada sistem produksi
-- Memperkuat:
-  - Autentikasi
-  - Otorisasi
-- Restrukturisasi sistem admin website
-- Penerapan:
-  - WAF
-  - Cloudflare
-  - Rate limiting
-  - Secure file upload
+### 5.2 Prosedur Keamanan
+- SOP respon insiden
 - Audit keamanan berkala
-- Pengelolaan kredensial yang lebih ketat
+- Pengetesan keamanan terkontrol
+- Edukasi keamanan untuk operator sistem
 
 ---
 
-## ⚠️ Disclaimer
+## Penutup
+Dokumen ini disusun sebagai **panduan pencegahan** agar sistem digital SMADA:
+- Lebih aman
+- Lebih stabil
+- Lebih profesional
+- Siap menghadapi ancaman nyata di masa depan
 
-Laporan ini disusun **untuk tujuan edukasi, evaluasi internal, dan peningkatan keamanan sistem**.  
-Tidak dimaksudkan untuk eksploitasi, penyalahgunaan, atau tindakan yang melanggar hukum.
-
----
-
-## 👤 Penyusun
-Disusun oleh:  
-**Siswa SMADA**  
-Sebagai bentuk kepedulian terhadap keamanan dan kualitas sistem digital sekolah.
+Keamanan bukan tentang siapa yang salah, melainkan **bagaimana sistem diperbaiki dan diperkuat bersama**.
 
 ---
 
-## 📅 Riwayat Dokumen
-- Versi: 1.0  
-- Update Terakhir: 30 Desember 2025
+**Disusun oleh:**  
+Siswa SMADA  
+Sebagai bentuk kepedulian terhadap keamanan dan reputasi institusi
